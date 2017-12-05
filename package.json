@@ -1,0 +1,24 @@
+{
+  "name": "outline-html-view",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc && webpack --progress --config webpack.config.js"
+  },
+  "dependencies": {
+    "raml-client-proxy": "*",
+    "atom-web-ui": "*"
+  },
+  "devDependencies": {
+    "@types/node": "8.0.47",
+    "@types/jquery": "2.0.47",
+    "typescript": "^2.5.2",
+    "rimraf":"2.6.2",
+    "webpack": "1.15.0",
+    "json-loader": "*",
+    "css-loader": "*",
+    "url-loader": "*",
+    "html-loader": "*",
+    "file-loader": "~0.8.0"
+  }
+}
