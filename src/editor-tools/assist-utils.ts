@@ -23,17 +23,6 @@ function getActiveEditor() : any {
     return null
 }
 
-export function gotoPosition(position: number): void {
-    let activeEditor = getActiveEditor();
-    if (!activeEditor) {
-        return;
-    }
-
-    let bufferPos = activeEditor.getBuffer().positionForCharacterIndex(position);
-
-    activeEditor.setSelectedBufferRange({start: bufferPos, end: bufferPos}, {});
-}
-
 export function applyChangedDocuments(changedDocuments : any[]) : void {
 
     for (let changedDocument of changedDocuments) {
@@ -85,3 +74,15 @@ export function applyChangedDocumentsAsync(changedDocuments : any[], newOffset: 
         foundEditor.getBuffer().setText(currentContent, newOffset);
     }
 }
+
+export function gotoPosition(position: number): void {
+    let activeEditor = getActiveEditor();
+    if (!activeEditor) {
+        return;
+    }
+
+    let bufferPos = activeEditor.getBuffer().positionForCharacterIndex(position);
+
+    activeEditor.setSelectedBufferRange({start: bufferPos, end: bufferPos}, {});
+}
+

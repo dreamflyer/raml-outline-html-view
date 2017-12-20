@@ -7,6 +7,12 @@ import {
     Reconciler
 } from "./reconciler"
 
+import {applyChangedDocuments} from "./assist-utils";
+
+import {
+    launchServerActionByID
+} from "./actions"
+
 import ramlClientProxy = require("raml-client-proxy");
 
 var lastSelectedCaption:string;
@@ -320,7 +326,7 @@ class TopLevelNode extends Category{
 
     constructor(protected detailsNode:any,
                 protected context: DetailsContext){
-        super(detailsNode.title,detailsNode.description);
+        super(detailsNode?detailsNode.title:"API",detailsNode?detailsNode.description:"");
     }
 
     detach(){
@@ -813,29 +819,149 @@ class LowLevelTreeField extends PropertyEditorInfo{
     }
 }
 
+class ActionsItem extends Item {
+
+    private nodes: any[] = [];
+
+    constructor(protected context: DetailsContext){
+        super("Actions","");
+    }
+
+    addNode(node: any) {
+        this.nodes.push(node);
+    }
+
+    render(r:RenderingOptions){
+
+        var result=UI.vc();
+        var hc=UI.hc();
+        result.addChild(UI.h3("Insertions and Delete: "));
+        result.addChild(hc)
+
+        this.nodes.forEach((node) => {
+            if (node.subType == "INSERT") {
+                hc.addChild(UI.button(
+                    node.title,UI.ButtonSizes.EXTRA_SMALL,UI.ButtonHighlights.INFO,UI.Icon.NONE,x=>{
+                        this.run(node.id)
+                    }
+                ).margin(3,3,3,3));
+            }
+        })
+
+        this.nodes.forEach((node) => {
+            if (node.subType == "INSERT_VALUE") {
+                hc.addChild(UI.button(
+                    node.title,UI.ButtonSizes.EXTRA_SMALL,UI.ButtonHighlights.WARNING,UI.Icon.NONE,x=>{
+                        this.run(node.id)
+                    }
+                ).margin(3,3,3,3));
+            }
+        })
+
+        this.nodes.forEach((node) => {
+            if (node.subType == "DELETE") {
+                hc.addChild(UI.button(
+                    node.title,UI.ButtonSizes.EXTRA_SMALL,UI.ButtonHighlights.ERROR,UI.Icon.NONE,x=>{
+                        this.run(node.id)
+                    }
+                ).margin(3,3,3,3));
+            }
+        })
+
+        return result;
+    }
+
+    private run(actionID: string) {
+        ramlClientProxy.executeDetailsAction(this.context.uri, actionID, this.context.position
+                ).then((changedDocuments => {
+                applyChangedDocuments(changedDocuments);
+        }))
+    }
+
+    dispose(){
+
+    }
+}
+
+/**
+ * Instanceof check for ActionsItem.
+ * @param item
+ * @return {boolean}
+ */
+function isInstanceOfActionsItem(item: Item) : item is ActionsItem {
+    return (item as ActionsItem).addNode != null;
+}
+
+class CustomActionsItem extends Item {
+
+    private nodes: any[] = [];
+
+    constructor(protected context: DetailsContext){
+        super("Actions","");
+    }
+
+    addAction(node: any) {
+        this.nodes.push(node);
+    }
+
+    render(r:RenderingOptions){
+
+        var result=UI.vc();
+        var hc=UI.hc();
+        result.addChild(UI.h3("Custom Actions: "));
+        result.addChild(hc)
+
+        this.nodes.forEach((node) => {
+            hc.addChild(UI.button(
+                node.title,UI.ButtonSizes.EXTRA_SMALL,UI.ButtonHighlights.INFO,UI.Icon.NONE,x=>{
+                    this.run(node.id)
+                }
+            ).margin(3,3,3,3));
+        })
+
+        return result;
+    }
+
+    private run(actionID: string) {
+        launchServerActionByID(this.context.uri, actionID, this.context.position);
+    }
+
+    dispose(){
+
+    }
+}
+
+function isInstanceOfCustomActionsItem(item: Item) : item is CustomActionsItem {
+    return (item as CustomActionsItem).addAction != null;
+}
+
 export function buildItem(detailsNode:any,
                           context: DetailsContext, dialog:boolean){
 
 
     let root=new TopLevelNode(detailsNode, context);
 
-    if(detailsNode.children) {
-        for (let child of detailsNode.children) {
+    try {
+        if(detailsNode && detailsNode.children) {
+            for (let child of detailsNode.children) {
 
-            if (child.type == "CATEGORY") {
+                if (child.type == "CATEGORY") {
 
-                let categoryName = child.title;
-                if (child.children) {
-                    for (let childOfChild of child.children) {
-                        buildItemInCategory(childOfChild, root, categoryName, context);
+                    let categoryName = child.title;
+                    if (child.children) {
+                        for (let childOfChild of child.children) {
+                            buildItemInCategory(childOfChild, root, categoryName, context);
+                        }
                     }
+
+                } else {
+                    buildItemInCategory(child, root, null, context);
                 }
 
-            } else {
-                buildItemInCategory(child, root, null, context);
             }
-
         }
+    } catch (error) {
+        console.log(error);
     }
 
     return <any>root;
@@ -846,18 +972,18 @@ function buildItemInCategory(
     context: DetailsContext) {
 
     let item = null;
-
-    if(detailsNode.type == "CHECKBOX") {
-        item = new CheckBoxField(<any>detailsNode, context);
-    }
-    else if(detailsNode.type == "JSONSCHEMA"
-        && (<any>detailsNode).valueText !== null) {
-        item = new JSONSchemaField(<any>detailsNode, context);
-    }
-    else if(detailsNode.type == "XMLSCHEMA"
-        && (<any>detailsNode).valueText !== null) {
-        item = new XMLSchemaField(<any>detailsNode, context);
-    }
+    try {
+        if(detailsNode.type == "CHECKBOX") {
+            item = new CheckBoxField(<any>detailsNode, context);
+        }
+            else if(detailsNode.type == "JSONSCHEMA"
+            && (<any>detailsNode).valueText !== null) {
+            item = new JSONSchemaField(<any>detailsNode, context);
+        }
+        else if(detailsNode.type == "XMLSCHEMA"
+            && (<any>detailsNode).valueText !== null) {
+            item = new XMLSchemaField(<any>detailsNode, context);
+     }
     else if(detailsNode.type == "MARKDOWN") {
         item = new MarkdownField(<any>detailsNode, context);
     }
@@ -890,6 +1016,20 @@ function buildItemInCategory(
     }
     else if(detailsNode.type == "ATTRIBUTETEXT") {
         item = new PropertyEditorInfo(<any>detailsNode, context);
+    } else if (detailsNode.type == "DETAILS_ACTION") {
+
+            if ((detailsNode).subType != "CUSTOM_ACTION") {
+                const actionItem = findOrCreateActionItemInCategory(root, categoryName, context);
+
+                actionItem.addNode(detailsNode);
+            } else {
+                const customActionItem = findOrCreateCustomActionItemInCategory(root, categoryName, context);
+
+                customActionItem.addAction(detailsNode);
+            }
+        }
+    } catch (error) {
+        console.log(error)
     }
 
     if (item != null) {
@@ -898,3 +1038,53 @@ function buildItemInCategory(
         console.log("Can not recognize element " + detailsNode.type);
     }
 }
+
+function findOrCreateActionItemInCategory(root: TopLevelNode, categoryName: string,
+                                          context: DetailsContext) : ActionsItem {
+    const category = root.subCategoryByNameOrCreate(categoryName);
+    for (const child of category.children()) {
+        if (isInstanceOfActionsItem(child)) {
+            return child;
+        }
+    }
+
+    const actionsItem = new ActionsItem(context);
+    category.children().unshift(actionsItem);
+
+    return actionsItem;
+}
+
+function findActionItemInCategory(root: TopLevelNode, categoryName: string,
+                                  context: DetailsContext) {
+    const category = root.subCategoryByNameOrCreate(categoryName);
+    for (const child of category.children()) {
+        if (isInstanceOfActionsItem(child)) {
+            return child;
+        }
+    }
+
+    return null;
+}
+
+function findOrCreateCustomActionItemInCategory(root: TopLevelNode, categoryName: string,
+                                          context: DetailsContext) : CustomActionsItem {
+    const category = root.subCategoryByNameOrCreate(categoryName);
+    for (const child of category.children()) {
+        if (isInstanceOfCustomActionsItem(child)) {
+            return child;
+        }
+    }
+
+    const customActionsItem = new CustomActionsItem(context);
+
+    const inserterActionsItem = findActionItemInCategory(root, categoryName, context);
+
+    if (inserterActionsItem) {
+        category.children().splice(1, 0, customActionsItem);
+    } else {
+        category.children().unshift(customActionsItem);
+    }
+
+    return customActionsItem;
+}
+
